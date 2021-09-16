@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>AR Fukuoka</title>
+    <script src="https://aframe.io/releases/1.1.0/aframe.min.js"></script>
+    <!--Loading libraries related with TensorFlow-->
+    <script src="https://unpkg.com/@tensorflow/tfjs-core@2.1.0/dist/tf-core.js"></script>
+    <script src="https://unpkg.com/@tensorflow/tfjs-converter@2.1.0/dist/tf-converter.js"></script>
+    <script src="https://unpkg.com/@tensorflow/tfjs-backend-webgl@2.1.0/dist/tf-backend-webgl.js"></script>
+    <!--Loading model of face detection.-->
+    <script src="https://unpkg.com/@tensorflow-models/facemesh@0.0.4/dist/facemesh.js"></script>
+    <!--Original scripts-->
+    <script type="text/javascript"> 
+      var video; //variable for video camera 
+      var model; //model of face detection 
+      var camera;//virtual camera (=view point)
+      var canvas; //drawing area
+      var screenWidth, screenHeight;//Size of draw area
+      var halfWidth, halfHeight; //Half size of draw area
+      
+      //Executed after loading the page.
+      window.onload = function() {
+        //Accessing to canvas element
+        canvas=document.getElementsByClassName('a-canvas')[0];
+        //Accessing a-scene(id=scene)
+        let scene = document.getElementById('scene');
+        //Accessing to virtual camera of a-frame 
+        camera= scene.camera;  
+        //Setting resolution of video(approx. 640x480)
+        let constraints = { video: { width: 640, height: 480 } };
+        //Acquiring video camera. 
+        navigator.mediaDevices.getUserMedia(constraints).then(
+          function(mediaStream) {
+            //Accessing to the element to draw video.
+            video = document.getElementById("video");
+            //Assigning mediaStream to video source.
+            video.srcObject = mediaStream;
+            //Start to play 
+            video.onloadedmetadata = function(e) {
+              video.play();
+              //Loading the model of face detection
+              LoadFaceModel();              
+            };
+          }
+        );
+      };
+      //Initialization and staring face detetion
+      async function LoadFaceModel(){
+        //Loading the model of face detection
+        model = await facemesh.load();
+        //Start face tracking.  
+        FaceTracking();    
+      } 
+      //The function to controll virtual camera by using face trackig.
+      async function FaceTracking(){
+        //Change parameters if window size is changed.
+        if(screenWidth!=canvas.width || screenHeight!=canvas.height){
+          screenWidth=canvas.width;
+          screenHeight=canvas.height;  
+          //Calculate height by fixing width as 1.
+          let height=screenHeight/screenWidth;
+          //Acqiring and resize virtual room.
+          let room= document.getElementById('room');
+          room.setAttribute('scale', { x: 1, y: height, z: 1 });
+          halfWidth = 0.5; //width/2=1/2=0.5            
+          halfHeight = height/2;            
+        }        
+        //Try to detect face.
+        let predictions = await model.estimateFaces(video);
+        //If faces are detected, control the virtual camera.
+        if (predictions.length > 0) {
+          //Acquiring coordinates of top Left and bottom Right of bounding box.
+          let keypoints = predictions[0].boundingBox;
+          let topLeft=keypoints.topLeft;
+          let bottomRight=keypoints.bottomRight;
+          //Calculation of the center pont.(Normalized as -1~1)
+          let cX=(topLeft[0]+bottomRight[0])/video.videoWidth-1;
+          let cY=(topLeft[1]+bottomRight[1])/video.videoHeight-1; 
+          //Controling virtual camera position by using face position.
+          camera.position.x=-cX * halfWidth; 
+          camera.position.y=-cY * halfHeight;
+          camera.position.z=2.5; //z position is fixed.  
+          let near=1;
+          let a=near/camera.position.z;
+          //Calculate the projection matrix.
+          camera.projectionMatrix=PerspectiveOffCenter(
+            (-halfWidth-camera.position.x)*a,(halfWidth-camera.position.x)*a,
+            (-halfHeight-camera.position.y)*a,(halfHeight-camera.position.y)*a,
+            near,5);           
+        }
+        window.requestAnimationFrame(FaceTracking);        
+      }    
+      function PerspectiveOffCenter(left, right, bottom, top, near, far)
+      {
+        var x = 2.0 * near / (right - left);
+        var y = 2.0 * near / (top - bottom);
+        var a = (right + left) / (right - left);
+        var b = (top + bottom) / (top - bottom);
+        var c = -(far + near) / (far - near);
+        var d = -(2.0 * far * near) / (far - near);
+        var e = -1.0;
+        var m = new THREE.Matrix4();
+        m.set( x,0,a,0, 0,y,b,0, 0,0,c, d,0,0, e,0);
+        return m;
+      }
+    </script>
+  </head>
+  
+  <body>
+    <a-scene id="scene" background="color: #FAFAFA"  shadow="type: pcfsoft" style="position: absolute;" >
+      <!--Objects for shown in the virtual room-->
+      <a-entity id="objects" position = "0 0 0.6" scale="1 1 1">
+        <a-obj-model scale="0.07 0.07 0.07"  position ="0 -0.12 0" src="https://cdn.glitch.com/18b8e863-e655-4398-b04d-22e8f4431ac5%2FAstronaut.obj?v=1612391442897" mtl="https://cdn.glitch.com/18b8e863-e655-4398-b04d-22e8f4431ac5%2FAstronaut.mtl?v=1612391505190" shadow></a-obj-model>
+      </a-entity>
+      <!--Virtual room-->
+      <a-entity id="room" scale="1 1 1">
+        <a-plane position="0 0.0 -0.0" rotation="0 0 0" color="#222222" shadow></a-plane>
+      </a-entity>
+      <!--Camera-->
+      <a-entity camera position="0 0 0" ></a-entity>
+      <a-light color="#BBB" type="ambient" intensity= "0.6"  ></a-light>
+     <a-entity  light="intensity: 0.7; castShadow: true" position="0.2 0 1.1" data-aframe-default-light="" aframe-injected=""></a-entity>
+    </a-scene>
+    <!--virualize camera image-->
+    <video id="video" style="width:320px; height:240px;"></video>
+  </body>
+  
+</html>
