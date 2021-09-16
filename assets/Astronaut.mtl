@@ -1,0 +1,8 @@
+newmtl Astronaut_mat
+illum 4
+Kd 0.50 0.50 0.50
+Ka 0.00 0.00 0.00
+Tf 1.00 1.00 1.00
+Ni 1.00
+
+map_Kd https://cdn.glitch.com/18b8e863-e655-4398-b04d-22e8f4431ac5%2FAstronaut_BaseColor.png?v=1612391448848
