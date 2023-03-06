@@ -1,6 +1,6 @@
 # Perspective Effect with Head Tracking of MediaPipe
  
-# Try on Your PC
+# Try It on Your PC
 Displayed at the back of the screen. (index.html)<br>
 https://web-parallax.glitch.me
 <br>
